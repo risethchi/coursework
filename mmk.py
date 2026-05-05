@@ -77,3 +77,116 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.savefig('lq_vs_rho.png', dpi=150)
     plt.show()
+
+lmbda_base = 8.0
+mu = 3.0
+k_list = [3,4,5,6]
+
+Lq_arr = []
+Wq_arr = []
+Pwait_arr = []
+for k in k_list:
+    r = mmk_stats(lmbda_base, mu, k)
+    Lq_arr.append(r['Lq'])
+    Wq_arr.append(r['Wq'])
+    Pwait_arr.append(r['P_wait'])
+
+fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+axes[0].plot(k_list, Lq_arr, 'bo-', linewidth=2)
+axes[0].set_xlabel('Число каналов k')
+axes[0].set_ylabel('Lq')
+axes[0].set_title('Средняя длина очереди')
+axes[0].grid(True)
+
+axes[1].plot(k_list, Wq_arr, 'rs-', linewidth=2)
+axes[1].set_xlabel('Число каналов k')
+axes[1].set_ylabel('Wq (время ожидания)')
+axes[1].set_title('Среднее время ожидания')
+axes[1].grid(True)
+
+axes[2].plot(k_list, Pwait_arr, 'g^-', linewidth=2)
+axes[2].set_xlabel('Число каналов k')
+axes[2].set_ylabel('P_{ож}')
+axes[2].set_title('Вероятность ожидания')
+axes[2].grid(True)
+
+plt.tight_layout()
+plt.savefig('metrics_vs_k.png', dpi=150)
+plt.show()
+
+mu_single = 4 * mu   # эквивалентная одноканальная система
+lambda_range = np.linspace(1, 11.5, 50)
+Lq_mm1 = []
+Wq_mm1 = []
+Lq_mm4 = []
+Wq_mm4 = []
+
+for lam in lambda_range:
+    # M/M/1 с общей интенсивностью mu_single
+    rho1 = lam / mu_single
+    if rho1 < 1:
+        Lq_mm1.append(rho1**2 / (1 - rho1))
+        Wq_mm1.append(Lq_mm1[-1] / lam)
+    else:
+        Lq_mm1.append(np.nan)
+        Wq_mm1.append(np.nan)
+    # M/M/4
+    try:
+        res4 = mmk_stats(lam, mu, 4)
+        Lq_mm4.append(res4['Lq'])
+        Wq_mm4.append(res4['Wq'])
+    except ValueError:
+        Lq_mm4.append(np.nan)
+        Wq_mm4.append(np.nan)
+
+fig2, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+ax1.plot(lambda_range, Lq_mm1, 'r--', label='M/M/1 (общая мощность)')
+ax1.plot(lambda_range, Lq_mm4, 'b-', label='M/M/4')
+ax1.set_xlabel('Интенсивность поступления λ')
+ax1.set_ylabel('Lq')
+ax1.set_title('Длина очереди')
+ax1.legend()
+ax1.grid(True)
+
+ax2.plot(lambda_range, Wq_mm1, 'r--', label='M/M/1')
+ax2.plot(lambda_range, Wq_mm4, 'b-', label='M/M/4')
+ax2.set_xlabel('λ')
+ax2.set_ylabel('Wq')
+ax2.set_title('Время ожидания')
+ax2.legend()
+ax2.grid(True)
+
+plt.tight_layout()
+plt.savefig('compare_mm1_mm4.png', dpi=150)
+plt.show()
+
+fig3, axes3 = plt.subplots(1, 3, figsize=(15, 4))
+for ax, k_val in zip(axes3, [3,4,6]):
+    r = mmk_stats(lmbda_base, mu, k_val)
+    n_vals = np.arange(0, min(len(r['p']), 30))   # покажем первые 30 состояний
+    probs = r['p'][:len(n_vals)]
+    ax.bar(n_vals, probs, width=0.6, color='steelblue', edgecolor='black')
+    ax.axvline(x=k_val, color='red', linestyle='--', label=f'k={k_val}')
+    ax.set_xlabel('Число требований n')
+    ax.set_ylabel('p_n')
+    ax.set_title(f'Распределение при k={k_val}')
+    ax.legend()
+    ax.grid(True, axis='y')
+plt.tight_layout()
+plt.savefig('prob_distributions.png', dpi=150)
+plt.show()
+
+t_values = np.linspace(0, 1.0, 100)
+plt.figure(figsize=(8,5))
+for k_val in k_list:
+    r = mmk_stats(lmbda_base, mu, k_val)
+    Pw = r['P_wait']
+    survival = Pw * np.exp(-k_val * mu * (1 - r['rho']) * t_values)
+    plt.plot(t_values, survival, label=f'k={k_val}')
+plt.xlabel('Пороговое время t')
+plt.ylabel('P(Wq > t)')
+plt.title('Вероятность ожидания дольше t')
+plt.legend()
+plt.grid(True)
+plt.savefig('wait_exceed.png', dpi=150)
+plt.show()
